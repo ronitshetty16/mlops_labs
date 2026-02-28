@@ -2,4 +2,4 @@
     remote = lab2
 ['remote "lab2"']
     url = gs://dvc-test101
-    credentialpath = ../credentials/dvc-lab-credentials.json
+    credentialpath = ../credentials/gcp-dvc-credentials.json
