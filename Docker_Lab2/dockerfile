@@ -1,0 +1,29 @@
+# ── Stage 1: Train the model ──────────────────────────────────────────────────
+FROM python:3.11-slim AS trainer
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src/model_training.py .
+RUN python model_training.py
+
+# ── Stage 2: Serve predictions ────────────────────────────────────────────────
+FROM python:3.11-slim AS server
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy trained model artifact from Stage 1
+COPY --from=trainer /app/wine_model.pkl .
+
+# Copy Flask app and frontend assets
+COPY src/main.py .
+COPY src/templates/ templates/
+
+EXPOSE 4000
+
+CMD ["python", "main.py"]

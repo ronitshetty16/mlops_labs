@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wine Classifier</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      color: #1a1a2e;
+    }
+
+    header {
+      background: linear-gradient(135deg, #6b21a8, #a21caf);
+      color: white;
+      padding: 1.5rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    header .logo { font-size: 2rem; }
+    header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: 0.5px; }
+    header p  { font-size: 0.85rem; opacity: 0.85; margin-top: 2px; }
+
+    .container {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .card h2 {
+      font-size: 1.1rem;
+      color: #6b21a8;
+      margin-bottom: 1.2rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #f3e8ff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .field .unit {
+      font-size: 0.7rem;
+      color: #999;
+      font-weight: 400;
+      text-transform: none;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      color: #1a1a2e;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      background: #fafafa;
+    }
+    .field input:focus {
+      outline: none;
+      border-color: #a21caf;
+      box-shadow: 0 0 0 3px rgba(162,28,175,0.12);
+      background: white;
+    }
+
+    .actions {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 1.5rem;
+    }
+
+    button {
+      padding: 0.7rem 1.8rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.2s;
+    }
+    button:active { transform: scale(0.97); }
+
+    #btn-predict {
+      background: linear-gradient(135deg, #6b21a8, #a21caf);
+      color: white;
+      box-shadow: 0 4px 14px rgba(107,33,168,0.35);
+    }
+    #btn-predict:hover { box-shadow: 0 6px 18px rgba(107,33,168,0.45); }
+
+    #btn-example {
+      background: #f3e8ff;
+      color: #6b21a8;
+    }
+    #btn-example:hover { background: #ede9fe; }
+
+    #btn-clear {
+      background: #f1f5f9;
+      color: #475569;
+    }
+    #btn-clear:hover { background: #e2e8f0; }
+
+    /* Result panel */
+    #result {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+    .result-hero {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 1.2rem 1.5rem;
+      background: linear-gradient(135deg, #fdf4ff, #ede9fe);
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+    }
+    .result-icon { font-size: 3rem; line-height: 1; }
+    .result-label { font-size: 0.8rem; color: #7c3aed; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+    .result-name  { font-size: 1.8rem; font-weight: 700; color: #1a1a2e; margin-top: 2px; }
+
+    .prob-list { display: flex; flex-direction: column; gap: 0.6rem; }
+    .prob-row { display: flex; align-items: center; gap: 0.75rem; }
+    .prob-label { width: 90px; font-size: 0.82rem; color: #555; font-weight: 600; }
+    .prob-bar-wrap {
+      flex: 1;
+      height: 10px;
+      background: #f3e8ff;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .prob-bar {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #a21caf, #6b21a8);
+      transition: width 0.6s ease;
+    }
+    .prob-pct { width: 42px; text-align: right; font-size: 0.82rem; font-weight: 700; color: #6b21a8; }
+
+    #error-msg {
+      display: none;
+      background: #fef2f2;
+      border: 1.5px solid #fca5a5;
+      color: #b91c1c;
+      border-radius: 8px;
+      padding: 0.8rem 1rem;
+      font-size: 0.9rem;
+    }
+
+    #spinner {
+      display: none;
+      width: 22px; height: 22px;
+      border: 3px solid #f3e8ff;
+      border-top-color: #a21caf;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="logo">🍷</span>
+  <div>
+    <h1>Wine Cultivar Classifier</h1>
+    <p>Random Forest · UCI Wine Dataset · 13 chemical features</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Input Card -->
+  <div class="card">
+    <h2>🧪 Chemical Properties</h2>
+    <form id="predict-form">
+      <div class="grid">
+        {% for key, label, unit in features %}
+        <div class="field">
+          <label>{{ label }} {% if unit %}<span class="unit">({{ unit }})</span>{% endif %}</label>
+          <input
+            type="number"
+            name="{{ key }}"
+            step="any"
+            placeholder="e.g. {{ examples[loop.index0] }}"
+            required
+          />
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="actions">
+        <button type="submit" id="btn-predict">
+          Predict <span id="spinner"></span>
+        </button>
+        <button type="button" id="btn-example">Load Example</button>
+        <button type="button" id="btn-clear">Clear</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Error -->
+  <div id="error-msg"></div>
+
+  <!-- Result Card -->
+  <div class="card" id="result">
+    <h2>🎯 Prediction Result</h2>
+    <div class="result-hero">
+      <div class="result-icon" id="result-icon">🍇</div>
+      <div>
+        <div class="result-label">Predicted Cultivar</div>
+        <div class="result-name" id="result-name">—</div>
+      </div>
+    </div>
+    <h2>📊 Class Probabilities</h2>
+    <div class="prob-list" id="prob-list"></div>
+  </div>
+
+</div>
+
+<script>
+  const EXAMPLES = {{ examples | tojson }};
+  const KEYS     = {{ features | map(attribute=0) | list | tojson }};
+  const ICONS    = { "class_0": "🍇", "class_1": "🍾", "class_2": "🌿" };
+
+  document.getElementById("btn-example").addEventListener("click", () => {
+    KEYS.forEach((k, i) => {
+      document.querySelector(`input[name="${k}"]`).value = EXAMPLES[i];
+    });
+  });
+
+  document.getElementById("btn-clear").addEventListener("click", () => {
+    document.getElementById("predict-form").reset();
+    document.getElementById("result").style.display = "none";
+    document.getElementById("error-msg").style.display = "none";
+  });
+
+  document.getElementById("predict-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const spinner = document.getElementById("spinner");
+    const btn     = document.getElementById("btn-predict");
+    spinner.style.display = "inline-block";
+    btn.disabled = true;
+
+    const fd = new FormData(e.target);
+
+    try {
+      const res  = await fetch("/predict", { method: "POST", body: fd });
+      const data = await res.json();
+
+      if (data.error) throw new Error(data.error);
+
+      // Show result
+      document.getElementById("error-msg").style.display = "none";
+      document.getElementById("result-name").textContent = data.prediction;
+      document.getElementById("result-icon").textContent = ICONS[data.prediction] || "🍷";
+
+      const probList = document.getElementById("prob-list");
+      probList.innerHTML = "";
+      for (const [cls, pct] of Object.entries(data.probabilities)) {
+        probList.innerHTML += `
+          <div class="prob-row">
+            <span class="prob-label">${cls}</span>
+            <div class="prob-bar-wrap">
+              <div class="prob-bar" style="width:${pct}%"></div>
+            </div>
+            <span class="prob-pct">${pct}%</span>
+          </div>`;
+      }
+
+      document.getElementById("result").style.display = "block";
+      document.getElementById("result").scrollIntoView({ behavior: "smooth" });
+    } catch (err) {
+      document.getElementById("error-msg").textContent = "Error: " + err.message;
+      document.getElementById("error-msg").style.display = "block";
+      document.getElementById("result").style.display = "none";
+    } finally {
+      spinner.style.display = "none";
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
