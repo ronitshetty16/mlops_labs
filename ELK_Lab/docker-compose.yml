@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+
+  # ── Elasticsearch ───────────────────────────────────────────────────────
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.9
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms256m -Xmx256m
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elastic_data:/usr/share/elasticsearch/data
+    networks:
+      - elk
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9200"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+
+  # ── Logstash ────────────────────────────────────────────────────────────
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.17.9
+    container_name: logstash
+    environment:
+      - LS_JAVA_OPTS=-Xms256m -Xmx256m
+    volumes:
+      - ./logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+      - log_data:/usr/share/logstash/ingest_data
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - elk
+
+  # ── Kibana ──────────────────────────────────────────────────────────────
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.9
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - xpack.security.enabled=false
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - elk
+
+  # ── ML Trainer ──────────────────────────────────────────────────────────
+  # Retrains GradientBoostingClassifier on Breast Cancer data every 2 min
+  ml-trainer:
+    build:
+      context: .
+      dockerfile: Dockerfile.ml
+    container_name: ml-trainer
+    volumes:
+      - log_data:/app/logs
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - elk
+    restart: "no"
+
+  # ── Drift Detector ──────────────────────────────────────────────────────
+  # Simulates data drift every minute for 10 minutes
+  drift-detector:
+    build:
+      context: .
+      dockerfile: Dockerfile.ml
+    container_name: drift-detector
+    command: python drift_detection.py
+    volumes:
+      - log_data:/app/logs
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - elk
+    restart: "no"
+
+volumes:
+  elastic_data:
+    driver: local
+  log_data:
+    driver: local
+
+networks:
+  elk:
+    driver: bridge
